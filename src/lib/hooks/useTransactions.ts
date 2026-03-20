@@ -28,7 +28,12 @@ export function useTransactions(month: number, year: number) {
       .order('description', { ascending: true });
 
     if (error) {
-      console.error('Erro ao buscar transações:', error);
+      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        console.warn('Tabela transactions não existe. Execute o supabase-schema.sql no SQL Editor.');
+      } else {
+        console.error('Erro ao buscar transações:', error);
+      }
+      setTransactions([]);
       setLoading(false);
       return;
     }
