@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Plus, Repeat } from 'lucide-react';
+import { X, Plus, Repeat, Link2, Unlink } from 'lucide-react';
 import { TransactionFormData, TransactionType, TransactionStatus } from '@/types';
 
 interface TransactionFormProps {
@@ -9,9 +9,10 @@ interface TransactionFormProps {
   onClose: () => void;
   initialData?: Partial<TransactionFormData>;
   isEditing?: boolean;
+  showRecurrenceToggle?: boolean;
 }
 
-export default function TransactionForm({ onSubmit, onClose, initialData, isEditing }: TransactionFormProps) {
+export default function TransactionForm({ onSubmit, onClose, initialData, isEditing, showRecurrenceToggle }: TransactionFormProps) {
   const [description, setDescription] = useState(initialData?.description || '');
   const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
   const [type, setType] = useState<TransactionType>(initialData?.type || 'despesa_variavel');
@@ -145,7 +146,8 @@ export default function TransactionForm({ onSubmit, onClose, initialData, isEdit
             </div>
           </div>
 
-          {!isEditing && (
+          {/* Recurrence toggle: shown when creating OR when editing with showRecurrenceToggle */}
+          {(!isEditing || showRecurrenceToggle) && (
             <button
               type="button"
               onClick={() => setIsRecurring(!isRecurring)}
@@ -155,8 +157,30 @@ export default function TransactionForm({ onSubmit, onClose, initialData, isEdit
                   : 'bg-slate-700/30 text-slate-400 border-slate-600 hover:bg-slate-700/50'
               }`}
             >
-              <Repeat className="w-4 h-4" />
-              <span className="text-sm font-medium">Repetir todo mês</span>
+              {isEditing ? (
+                isRecurring ? (
+                  <>
+                    <Unlink className="w-4 h-4" />
+                    <div className="text-left">
+                      <span className="text-sm font-medium block">Recorrente — clique para desvincular</span>
+                      <span className="text-[10px] opacity-70">Remove a recorrência apenas deste mês</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-4 h-4" />
+                    <div className="text-left">
+                      <span className="text-sm font-medium block">Avulso — clique para tornar recorrente</span>
+                      <span className="text-[10px] opacity-70">Será replicado para os próximos meses</span>
+                    </div>
+                  </>
+                )
+              ) : (
+                <>
+                  <Repeat className="w-4 h-4" />
+                  <span className="text-sm font-medium">Repetir todo mês</span>
+                </>
+              )}
             </button>
           )}
 

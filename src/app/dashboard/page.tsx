@@ -29,6 +29,8 @@ export default function DashboardPage() {
     updateTransaction,
     deleteTransaction,
     toggleStatus,
+    makeRecurring,
+    removeRecurrence,
   } = useTransactions(month, year);
 
   useEffect(() => {
@@ -103,6 +105,8 @@ export default function DashboardPage() {
               onToggleStatus={toggleStatus}
               onUpdate={updateTransaction}
               onDelete={deleteTransaction}
+              onMakeRecurring={makeRecurring}
+              onRemoveRecurrence={removeRecurrence}
             />
           </>
         )}

@@ -67,8 +67,8 @@ export function useTransactions(month: number, year: number) {
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
 
-    // 3. Buscar transações recorrentes (receitas + despesas fixas) do mês anterior
-    //    Estes são os tipos que devem ser herdados automaticamente
+    // 3. Buscar TODAS as transações recorrentes do mês anterior
+    //    Todos os tipos (receita, despesa_fixa, despesa_variavel, reserva) são herdados
     const { data: prevRecurring } = await supabase
       .from('transactions')
       .select('*')
@@ -76,7 +76,6 @@ export function useTransactions(month: number, year: number) {
       .eq('is_recurring', true)
       .eq('month', prevMonth)
       .eq('year', prevYear)
-      .in('type', ['receita', 'despesa_fixa', 'reserva'])
       .not('recurring_group_id', 'is', null);
 
     if (!prevRecurring || prevRecurring.length === 0) return;
@@ -186,6 +185,20 @@ export function useTransactions(month: number, year: number) {
     return updateTransaction(id, { status });
   };
 
+  const makeRecurring = async (id: string) => {
+    return updateTransaction(id, {
+      is_recurring: true,
+      recurring_group_id: crypto.randomUUID(),
+    });
+  };
+
+  const removeRecurrence = async (id: string) => {
+    return updateTransaction(id, {
+      is_recurring: false,
+      recurring_group_id: null,
+    });
+  };
+
   return {
     transactions,
     loading,
@@ -193,6 +206,8 @@ export function useTransactions(month: number, year: number) {
     updateTransaction,
     deleteTransaction,
     toggleStatus,
+    makeRecurring,
+    removeRecurrence,
     refetch: fetchTransactions,
   };
 }

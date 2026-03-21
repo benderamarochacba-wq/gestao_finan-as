@@ -11,6 +11,8 @@ interface TransactionListProps {
   onToggleStatus: (id: string, currentStatus: string) => Promise<boolean>;
   onUpdate: (id: string, updates: Partial<Transaction>) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
+  onMakeRecurring: (id: string) => Promise<boolean>;
+  onRemoveRecurrence: (id: string) => Promise<boolean>;
 }
 
 function formatCurrency(value: number): string {
@@ -67,6 +69,8 @@ export default function TransactionList({
   onToggleStatus,
   onUpdate,
   onDelete,
+  onMakeRecurring,
+  onRemoveRecurrence,
 }: TransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -87,12 +91,27 @@ export default function TransactionList({
 
   const handleEdit = async (data: TransactionFormData) => {
     if (!editingTransaction) return false;
-    return onUpdate(editingTransaction.id, {
+
+    const wasRecurring = editingTransaction.is_recurring;
+    const nowRecurring = data.is_recurring;
+
+    // 1. Update the transaction fields (always isolated by ID)
+    const ok = await onUpdate(editingTransaction.id, {
       description: data.description,
       amount: data.amount,
       type: data.type,
       status: data.status,
     });
+    if (!ok) return false;
+
+    // 2. Handle recurrence toggle
+    if (!wasRecurring && nowRecurring) {
+      await onMakeRecurring(editingTransaction.id);
+    } else if (wasRecurring && !nowRecurring) {
+      await onRemoveRecurrence(editingTransaction.id);
+    }
+
+    return true;
   };
 
   const handleDelete = async (id: string) => {
@@ -238,6 +257,7 @@ export default function TransactionList({
             is_recurring: editingTransaction.is_recurring,
           }}
           isEditing
+          showRecurrenceToggle
         />
       )}
     </>
