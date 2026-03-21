@@ -21,7 +21,6 @@ export function useTransactions(month: number, year: number) {
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', user.id)
       .eq('month', month)
       .eq('year', year)
       .order('type', { ascending: true })
@@ -54,7 +53,6 @@ export function useTransactions(month: number, year: number) {
     const { data: existingForMonth } = await supabase
       .from('transactions')
       .select('recurring_group_id')
-      .eq('user_id', user.id)
       .eq('month', month)
       .eq('year', year)
       .not('recurring_group_id', 'is', null);
@@ -72,7 +70,6 @@ export function useTransactions(month: number, year: number) {
     const { data: prevRecurring } = await supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', user.id)
       .eq('is_recurring', true)
       .eq('month', prevMonth)
       .eq('year', prevYear)

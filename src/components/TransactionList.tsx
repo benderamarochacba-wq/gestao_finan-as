@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Transaction, TransactionType, TransactionFormData, TransactionStatus } from '@/types';
 import StatusBadge from './StatusBadge';
 import TransactionForm from './TransactionForm';
-import { Trash2, Pencil, Repeat, TrendingUp, TrendingDown, MoreVertical, Receipt, PiggyBank } from 'lucide-react';
+import { Trash2, Pencil, Repeat, TrendingUp, TrendingDown, MoreVertical, Receipt, PiggyBank, ChevronDown } from 'lucide-react';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -75,6 +75,11 @@ export default function TransactionList({
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggleSection = useCallback((type: string) => {
+    setCollapsed((prev) => ({ ...prev, [type]: !prev[type] }));
+  }, []);
 
   const grouped: Record<TransactionType, Transaction[]> = {
     receita: [],
@@ -89,13 +94,12 @@ export default function TransactionList({
 
   const sectionOrder: TransactionType[] = ['receita', 'despesa_fixa', 'despesa_variavel', 'reserva'];
 
-  const handleEdit = async (data: TransactionFormData) => {
+  const handleEdit = useCallback(async (data: TransactionFormData) => {
     if (!editingTransaction) return false;
 
     const wasRecurring = editingTransaction.is_recurring;
     const nowRecurring = data.is_recurring;
 
-    // 1. Update the transaction fields (always isolated by ID)
     const ok = await onUpdate(editingTransaction.id, {
       description: data.description,
       amount: data.amount,
@@ -104,7 +108,6 @@ export default function TransactionList({
     });
     if (!ok) return false;
 
-    // 2. Handle recurrence toggle
     if (!wasRecurring && nowRecurring) {
       await onMakeRecurring(editingTransaction.id);
     } else if (wasRecurring && !nowRecurring) {
@@ -112,7 +115,7 @@ export default function TransactionList({
     }
 
     return true;
-  };
+  }, [editingTransaction, onUpdate, onMakeRecurring, onRemoveRecurrence]);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -133,17 +136,21 @@ export default function TransactionList({
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {sectionOrder.map((type) => {
           const config = sectionConfig[type];
           const items = grouped[type];
           const subtotal = items.reduce((sum, t) => sum + Number(t.amount), 0);
           const Icon = config.icon;
+          const isCollapsed = collapsed[type] ?? false;
 
           return (
             <section key={type}>
-              {/* Section Header */}
-              <div className="flex items-center justify-between mb-3">
+              {/* Accordion Header — clickable */}
+              <button
+                onClick={() => toggleSection(type)}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
+              >
                 <div className="flex items-center gap-2">
                   <Icon className={`w-4 h-4 ${config.color}`} />
                   <h3 className="text-sm font-bold text-slate-200">{config.title}</h3>
@@ -151,93 +158,99 @@ export default function TransactionList({
                     {items.length}
                   </span>
                 </div>
-                {items.length > 0 && (
-                  <span className={`text-xs font-semibold ${config.color}`}>
-                    {formatCurrency(subtotal)}
-                  </span>
-                )}
-              </div>
-
-              {/* Transaction Cards */}
-              {items.length === 0 ? (
-                <div className="bg-slate-800/20 rounded-xl p-4 text-center border border-dashed border-slate-700/50">
-                  <p className="text-xs text-slate-500">Nenhuma transação</p>
+                <div className="flex items-center gap-2">
+                  {items.length > 0 && (
+                    <span className={`text-xs font-semibold ${config.color}`}>
+                      {formatCurrency(subtotal)}
+                    </span>
+                  )}
+                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {items.map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className={`${config.bgColor} rounded-xl p-4 border-l-[3px] ${config.borderColor} border border-slate-700/30 transition-all`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        {/* Left: description + amount */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <p className="text-sm font-medium text-white truncate">
-                              {transaction.description}
-                            </p>
-                            {transaction.is_recurring && (
-                              <span className="flex items-center gap-0.5 text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded-md font-medium flex-shrink-0">
-                                <Repeat className="w-2.5 h-2.5" />
-                                Mensal
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <p className={`text-lg font-bold ${config.color}`}>
-                              {type === 'receita' ? '+' : '-'}{' '}
-                              {formatCurrency(Number(transaction.amount))}
-                            </p>
-                            <StatusBadge
-                              status={transaction.status as TransactionStatus}
-                              onToggle={() => onToggleStatus(transaction.id, transaction.status)}
-                            />
-                          </div>
-                        </div>
+              </button>
 
-                        {/* Right: menu */}
-                        <div className="relative flex-shrink-0">
-                          <button
-                            onClick={() =>
-                              setActiveMenu(activeMenu === transaction.id ? null : transaction.id)
-                            }
-                            className="p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors"
-                          >
-                            <MoreVertical className="w-4 h-4 text-slate-500" />
-                          </button>
-                          {activeMenu === transaction.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-10"
-                                onClick={() => setActiveMenu(null)}
-                              />
-                              <div className="absolute right-0 top-full mt-1 z-20 bg-slate-700 rounded-xl shadow-2xl border border-slate-600 overflow-hidden min-w-[150px] animate-fade-in">
-                                <button
-                                  onClick={() => {
-                                    setEditingTransaction(transaction);
-                                    setActiveMenu(null);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-200 hover:bg-slate-600 transition-colors"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(transaction.id)}
-                                  disabled={deletingId === transaction.id}
-                                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-400 hover:bg-slate-600 transition-colors border-t border-slate-600/50"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  {deletingId === transaction.id ? 'Excluindo...' : 'Excluir'}
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
+              {/* Collapsible Content */}
+              {!isCollapsed && (
+                <div className="mt-2">
+                  {items.length === 0 ? (
+                    <div className="bg-slate-800/20 rounded-xl p-4 text-center border border-dashed border-slate-700/50">
+                      <p className="text-xs text-slate-500">Nenhuma transação</p>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-2">
+                      {items.map((transaction) => (
+                        <div
+                          key={transaction.id}
+                          id={`tx-${transaction.id}`}
+                          className={`${config.bgColor} rounded-xl p-4 border-l-[3px] ${config.borderColor} border border-slate-700/30 transition-all`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <p className="text-sm font-medium text-white truncate">
+                                  {transaction.description}
+                                </p>
+                                {transaction.is_recurring && (
+                                  <span className="flex items-center gap-0.5 text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded-md font-medium flex-shrink-0">
+                                    <Repeat className="w-2.5 h-2.5" />
+                                    Mensal
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <p className={`text-lg font-bold ${config.color}`}>
+                                  {type === 'receita' ? '+' : '-'}{' '}
+                                  {formatCurrency(Number(transaction.amount))}
+                                </p>
+                                <StatusBadge
+                                  status={transaction.status as TransactionStatus}
+                                  onToggle={() => onToggleStatus(transaction.id, transaction.status)}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="relative flex-shrink-0">
+                              <button
+                                onClick={() =>
+                                  setActiveMenu(activeMenu === transaction.id ? null : transaction.id)
+                                }
+                                className="p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors"
+                              >
+                                <MoreVertical className="w-4 h-4 text-slate-500" />
+                              </button>
+                              {activeMenu === transaction.id && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setActiveMenu(null)}
+                                  />
+                                  <div className="absolute right-0 top-full mt-1 z-20 bg-slate-700 rounded-xl shadow-2xl border border-slate-600 overflow-hidden min-w-[150px] animate-fade-in">
+                                    <button
+                                      onClick={() => {
+                                        setEditingTransaction(transaction);
+                                        setActiveMenu(null);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-200 hover:bg-slate-600 transition-colors"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                      Editar
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(transaction.id)}
+                                      disabled={deletingId === transaction.id}
+                                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-400 hover:bg-slate-600 transition-colors border-t border-slate-600/50"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      {deletingId === transaction.id ? 'Excluindo...' : 'Excluir'}
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -247,7 +260,12 @@ export default function TransactionList({
 
       {editingTransaction && (
         <TransactionForm
-          onSubmit={handleEdit}
+          onSubmit={async (data) => {
+            const scrollY = window.scrollY;
+            const result = await handleEdit(data);
+            requestAnimationFrame(() => window.scrollTo(0, scrollY));
+            return result;
+          }}
           onClose={() => setEditingTransaction(null)}
           initialData={{
             description: editingTransaction.description,

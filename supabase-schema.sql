@@ -36,30 +36,34 @@ CREATE INDEX IF NOT EXISTS idx_transactions_user_month_year ON public.transactio
 -- 3. Habilitar Row Level Security
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
--- 4. Políticas RLS (DROP IF EXISTS para ser idempotente)
+-- 4. Políticas RLS — Family Ledger (todos os autenticados compartilham os dados)
 DO $$ BEGIN
   DROP POLICY IF EXISTS "Users can view own transactions" ON public.transactions;
   DROP POLICY IF EXISTS "Users can insert own transactions" ON public.transactions;
   DROP POLICY IF EXISTS "Users can update own transactions" ON public.transactions;
   DROP POLICY IF EXISTS "Users can delete own transactions" ON public.transactions;
+  DROP POLICY IF EXISTS "Authenticated users can view all" ON public.transactions;
+  DROP POLICY IF EXISTS "Authenticated users can insert" ON public.transactions;
+  DROP POLICY IF EXISTS "Authenticated users can update" ON public.transactions;
+  DROP POLICY IF EXISTS "Authenticated users can delete" ON public.transactions;
 END $$;
 
-CREATE POLICY "Users can view own transactions"
+CREATE POLICY "Authenticated users can view all"
   ON public.transactions FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Users can insert own transactions"
+CREATE POLICY "Authenticated users can insert"
   ON public.transactions FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (auth.role() = 'authenticated');
 
-CREATE POLICY "Users can update own transactions"
+CREATE POLICY "Authenticated users can update"
   ON public.transactions FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
 
-CREATE POLICY "Users can delete own transactions"
+CREATE POLICY "Authenticated users can delete"
   ON public.transactions FOR DELETE
-  USING (auth.uid() = user_id);
+  USING (auth.role() = 'authenticated');
 
 -- 5. Trigger para atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()

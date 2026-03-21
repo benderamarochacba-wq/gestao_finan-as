@@ -7,7 +7,15 @@ interface BalanceCardsProps {
   transactions: Transaction[];
 }
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number, compact = false): string {
+  if (compact && Math.abs(value) >= 10000) {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -72,60 +80,52 @@ export default function BalanceCards({ transactions }: BalanceCardsProps) {
       </div>
 
       {/* Quatro cards: Receitas, Despesas Fixas, Despesas Variáveis, Reservas */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {/* Receitas */}
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-[10px] uppercase tracking-wider text-emerald-400/70 font-semibold">Receitas</span>
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3 overflow-hidden">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+            <span className="text-[10px] uppercase tracking-wider text-emerald-400/70 font-semibold truncate">Receitas</span>
+            <span className="text-[10px] text-slate-500 ml-auto flex-shrink-0">{transactions.filter(t => t.type === 'receita').length}</span>
           </div>
-          <p className="text-sm font-bold text-emerald-400">
-            {formatCurrency(receitas)}
-          </p>
-          <p className="text-[10px] text-slate-500 mt-1">
-            {transactions.filter(t => t.type === 'receita').length} itens
+          <p className="text-base font-bold text-emerald-400 truncate">
+            {formatCurrency(receitas, true)}
           </p>
         </div>
 
         {/* Despesas Fixas */}
-        <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Repeat className="w-3.5 h-3.5 text-orange-500" />
-            <span className="text-[10px] uppercase tracking-wider text-orange-400/70 font-semibold">Fixas</span>
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3 overflow-hidden">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Repeat className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+            <span className="text-[10px] uppercase tracking-wider text-orange-400/70 font-semibold truncate">Fixas</span>
+            <span className="text-[10px] text-slate-500 ml-auto flex-shrink-0">{transactions.filter(t => t.type === 'despesa_fixa').length}</span>
           </div>
-          <p className="text-sm font-bold text-orange-400">
-            {formatCurrency(despesasFixas)}
-          </p>
-          <p className="text-[10px] text-slate-500 mt-1">
-            {transactions.filter(t => t.type === 'despesa_fixa').length} itens
+          <p className="text-base font-bold text-orange-400 truncate">
+            {formatCurrency(despesasFixas, true)}
           </p>
         </div>
 
         {/* Despesas Variáveis */}
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <TrendingDown className="w-3.5 h-3.5 text-red-500" />
-            <span className="text-[10px] uppercase tracking-wider text-red-400/70 font-semibold">Variáveis</span>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3 overflow-hidden">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <TrendingDown className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+            <span className="text-[10px] uppercase tracking-wider text-red-400/70 font-semibold truncate">Variáveis</span>
+            <span className="text-[10px] text-slate-500 ml-auto flex-shrink-0">{transactions.filter(t => t.type === 'despesa_variavel').length}</span>
           </div>
-          <p className="text-sm font-bold text-red-400">
-            {formatCurrency(despesasVariaveis)}
-          </p>
-          <p className="text-[10px] text-slate-500 mt-1">
-            {transactions.filter(t => t.type === 'despesa_variavel').length} itens
+          <p className="text-base font-bold text-red-400 truncate">
+            {formatCurrency(despesasVariaveis, true)}
           </p>
         </div>
 
         {/* Reservas */}
-        <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <PiggyBank className="w-3.5 h-3.5 text-violet-500" />
-            <span className="text-[10px] uppercase tracking-wider text-violet-400/70 font-semibold">Reservas</span>
+        <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-3 overflow-hidden">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <PiggyBank className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" />
+            <span className="text-[10px] uppercase tracking-wider text-violet-400/70 font-semibold truncate">Reservas</span>
+            <span className="text-[10px] text-slate-500 ml-auto flex-shrink-0">{transactions.filter(t => t.type === 'reserva').length}</span>
           </div>
-          <p className="text-sm font-bold text-violet-400">
-            {formatCurrency(reservasTotal)}
-          </p>
-          <p className="text-[10px] text-slate-500 mt-1">
-            {transactions.filter(t => t.type === 'reserva').length} itens
+          <p className="text-base font-bold text-violet-400 truncate">
+            {formatCurrency(reservasTotal, true)}
           </p>
         </div>
       </div>
