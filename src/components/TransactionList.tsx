@@ -75,7 +75,13 @@ export default function TransactionList({
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
+    receita: true,
+    despesa_fixa: true,
+    despesa_variavel: true,
+    reserva: true,
+  });
+  const [savedScrollY, setSavedScrollY] = useState(0);
 
   const toggleSection = useCallback((type: string) => {
     setCollapsed((prev) => ({ ...prev, [type]: !prev[type] }));
@@ -142,7 +148,7 @@ export default function TransactionList({
           const items = grouped[type];
           const subtotal = items.reduce((sum, t) => sum + Number(t.amount), 0);
           const Icon = config.icon;
-          const isCollapsed = collapsed[type] ?? false;
+          const isCollapsed = collapsed[type] ?? true;
 
           return (
             <section key={type}>
@@ -226,6 +232,7 @@ export default function TransactionList({
                                   <div className="absolute right-0 top-full mt-1 z-20 bg-slate-700 rounded-xl shadow-2xl border border-slate-600 overflow-hidden min-w-[150px] animate-fade-in">
                                     <button
                                       onClick={() => {
+                                        setSavedScrollY(window.scrollY);
                                         setEditingTransaction(transaction);
                                         setActiveMenu(null);
                                       }}
@@ -261,12 +268,23 @@ export default function TransactionList({
       {editingTransaction && (
         <TransactionForm
           onSubmit={async (data) => {
-            const scrollY = window.scrollY;
+            const editedType = editingTransaction.type;
+            const scroll = savedScrollY;
             const result = await handleEdit(data);
-            requestAnimationFrame(() => window.scrollTo(0, scrollY));
+            if (result) {
+              setCollapsed((prev) => ({ ...prev, [editedType]: false }));
+            }
+            setEditingTransaction(null);
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => window.scrollTo(0, scroll));
+            });
             return result;
           }}
-          onClose={() => setEditingTransaction(null)}
+          onClose={() => {
+            const scroll = savedScrollY;
+            setEditingTransaction(null);
+            requestAnimationFrame(() => window.scrollTo(0, scroll));
+          }}
           initialData={{
             description: editingTransaction.description,
             amount: Number(editingTransaction.amount),

@@ -1,7 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="100" fill="#0f172a"/>
-  <rect x="40" y="40" width="432" height="432" rx="80" fill="#1e293b"/>
-  <circle cx="256" cy="210" r="85" fill="#10b981" opacity="0.2"/>
-  <path d="M256 160 L256 260 M213 210 L299 210" stroke="#10b981" stroke-width="16" stroke-linecap="round"/>
-  <text x="256" y="390" text-anchor="middle" fill="#10b981" font-family="system-ui" font-size="60" font-weight="bold">R$</text>
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="accent5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg5)"/>
+  <!-- Ledger book -->
+  <rect x="116" y="96" width="280" height="320" rx="20" fill="#1e293b" stroke="#334155" stroke-width="3"/>
+  <rect x="116" y="96" width="32" height="320" rx="10" fill="#10b981" opacity="0.3"/>
+  <!-- Ledger lines -->
+  <line x1="168" y1="166" x2="364" y2="166" stroke="#334155" stroke-width="2.5"/>
+  <line x1="168" y1="220" x2="364" y2="220" stroke="#334155" stroke-width="2.5"/>
+  <line x1="168" y1="274" x2="364" y2="274" stroke="#334155" stroke-width="2.5"/>
+  <line x1="168" y1="328" x2="364" y2="328" stroke="#334155" stroke-width="2.5"/>
+  <!-- Check marks -->
+  <path d="M178 162 l10 10 l20-20" stroke="#10b981" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M178 216 l10 10 l20-20" stroke="#10b981" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M178 270 l10 10 l20-20" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.6"/>
+  <!-- Amount bars -->
+  <rect x="240" y="152" width="108" height="16" rx="4" fill="#10b981" opacity="0.25"/>
+  <rect x="240" y="206" width="84" height="16" rx="4" fill="#10b981" opacity="0.25"/>
+  <rect x="240" y="260" width="96" height="16" rx="4" fill="#f59e0b" opacity="0.15"/>
+  <rect x="240" y="314" width="72" height="16" rx="4" fill="#334155" opacity="0.5"/>
+  <!-- Floating coin -->
+  <circle cx="370" cy="112" r="48" fill="url(#accent5)" opacity="0.9"/>
+  <text x="370" y="126" text-anchor="middle" fill="#0f172a" font-family="system-ui" font-size="42" font-weight="bold">$</text>
 </svg>
