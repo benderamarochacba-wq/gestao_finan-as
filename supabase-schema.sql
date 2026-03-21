@@ -3,6 +3,9 @@
 -- Execute este script inteiro no Supabase SQL Editor de uma vez
 -- ============================================================
 
+-- 0. RESET: Limpar todos os dados para início limpo
+DELETE FROM public.transactions;
+
 -- 1. Criar tabela de transações
 CREATE TABLE IF NOT EXISTS public.transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -24,6 +27,14 @@ DO $$ BEGIN
   ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_type_check;
   ALTER TABLE public.transactions ADD CONSTRAINT transactions_type_check
     CHECK (type IN ('receita', 'despesa_fixa', 'despesa_variavel', 'reserva'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- 1c. Constraint de unicidade: impede duplicidade de descrição+tipo no mesmo mês
+DO $$ BEGIN
+  ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS unique_description_per_month;
+  ALTER TABLE public.transactions ADD CONSTRAINT unique_description_per_month
+    UNIQUE (description, type, month, year);
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 

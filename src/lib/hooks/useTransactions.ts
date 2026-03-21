@@ -77,12 +77,26 @@ export function useTransactions(month: number, year: number) {
 
     if (!prevRecurring || prevRecurring.length === 0) return;
 
-    // 4. Para cada transação recorrente do mês anterior que não existe neste mês,
+    // 4. Buscar descrições que já existem neste mês para evitar duplicatas
+    const { data: existingDescriptions } = await supabase
+      .from('transactions')
+      .select('description, type')
+      .eq('month', month)
+      .eq('year', year);
+
+    const existingKeys = new Set(
+      (existingDescriptions || []).map((t) => `${t.description.toLowerCase()}|${t.type}`)
+    );
+
+    // 5. Para cada transação recorrente do mês anterior que não existe neste mês,
     //    criar uma cópia com status 'pendente' (edições individuais por período)
     const toInsert: Record<string, unknown>[] = [];
     for (const template of prevRecurring) {
       if (!template.recurring_group_id) continue;
       if (existingGroupIds.has(template.recurring_group_id)) continue;
+
+      const key = `${template.description.toLowerCase()}|${template.type}`;
+      if (existingKeys.has(key)) continue;
 
       toInsert.push({
         user_id: user.id,
@@ -100,10 +114,11 @@ export function useTransactions(month: number, year: number) {
     if (toInsert.length > 0) {
       const { error } = await supabase.from('transactions').insert(toInsert);
       if (error) {
-        console.error('Erro ao replicar recorrentes:', error);
-      } else {
-        await fetchTransactions();
+        if (error.code !== '23505') {
+          console.error('Erro ao replicar recorrentes:', error);
+        }
       }
+      await fetchTransactions();
     }
   }, [month, year, supabase, fetchTransactions]);
 
@@ -124,6 +139,17 @@ export function useTransactions(month: number, year: number) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
+    // Validação de duplicidade: mesmo nome + tipo no mesmo mês
+    const duplicate = transactions.find(
+      (t) =>
+        t.description.toLowerCase().trim() === formData.description.toLowerCase().trim() &&
+        t.type === formData.type
+    );
+    if (duplicate) {
+      alert(`Já existe "${formData.description}" como ${formData.type.replace('_', ' ')} neste mês.`);
+      return false;
+    }
+
     const recurringGroupId = formData.is_recurring ? crypto.randomUUID() : null;
 
     const { error } = await supabase.from('transactions').insert({
@@ -139,7 +165,11 @@ export function useTransactions(month: number, year: number) {
     });
 
     if (error) {
-      console.error('Erro ao adicionar transação:', error);
+      if (error.code === '23505') {
+        alert(`Já existe "${formData.description}" como ${formData.type.replace('_', ' ')} neste mês.`);
+      } else {
+        console.error('Erro ao adicionar transação:', error);
+      }
       return false;
     }
 
