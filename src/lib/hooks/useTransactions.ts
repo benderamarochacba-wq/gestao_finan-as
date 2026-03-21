@@ -192,6 +192,21 @@ export function useTransactions(month: number, year: number) {
     return true;
   };
 
+  const updateByRecurringGroup = async (recurringGroupId: string, updates: Partial<Transaction>) => {
+    const { error } = await supabase
+      .from('transactions')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('recurring_group_id', recurringGroupId);
+
+    if (error) {
+      console.error('Erro ao atualizar série recorrente:', error);
+      return false;
+    }
+
+    await fetchTransactions();
+    return true;
+  };
+
   const deleteTransaction = async (id: string) => {
     const { error } = await supabase
       .from('transactions')
@@ -231,6 +246,7 @@ export function useTransactions(month: number, year: number) {
     loading,
     addTransaction,
     updateTransaction,
+    updateByRecurringGroup,
     deleteTransaction,
     toggleStatus,
     makeRecurring,

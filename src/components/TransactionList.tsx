@@ -4,12 +4,14 @@ import { useCallback, useState } from 'react';
 import { Transaction, TransactionType, TransactionFormData, TransactionStatus } from '@/types';
 import StatusBadge from './StatusBadge';
 import TransactionForm from './TransactionForm';
+import Toast from './Toast';
 import { Trash2, Pencil, Repeat, TrendingUp, TrendingDown, MoreVertical, Receipt, PiggyBank, ChevronDown } from 'lucide-react';
 
 interface TransactionListProps {
   transactions: Transaction[];
   onToggleStatus: (id: string, currentStatus: string) => Promise<boolean>;
   onUpdate: (id: string, updates: Partial<Transaction>) => Promise<boolean>;
+  onUpdateBatch: (recurringGroupId: string, updates: Partial<Transaction>) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
   onMakeRecurring: (id: string) => Promise<boolean>;
   onRemoveRecurrence: (id: string) => Promise<boolean>;
@@ -68,6 +70,7 @@ export default function TransactionList({
   transactions,
   onToggleStatus,
   onUpdate,
+  onUpdateBatch,
   onDelete,
   onMakeRecurring,
   onRemoveRecurrence,
@@ -82,6 +85,14 @@ export default function TransactionList({
     reserva: true,
   });
   const [savedScrollY, setSavedScrollY] = useState(0);
+  const [savedCollapsed, setSavedCollapsed] = useState<Record<string, boolean>>({});
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    setToastVisible(true);
+  }, []);
 
   const toggleSection = useCallback((type: string) => {
     setCollapsed((prev) => ({ ...prev, [type]: !prev[type] }));
@@ -105,15 +116,26 @@ export default function TransactionList({
 
     const wasRecurring = editingTransaction.is_recurring;
     const nowRecurring = data.is_recurring;
-
-    const ok = await onUpdate(editingTransaction.id, {
+    const fieldUpdates: Partial<Transaction> = {
       description: data.description,
       amount: data.amount,
       type: data.type,
       status: data.status,
-    });
+    };
+
+    let ok: boolean;
+
+    if (nowRecurring && editingTransaction.recurring_group_id) {
+      // Recurrence ON + has group: batch update all records in the series
+      ok = await onUpdateBatch(editingTransaction.recurring_group_id, fieldUpdates);
+    } else {
+      // Recurrence OFF or no group: update only this single record by UUID
+      ok = await onUpdate(editingTransaction.id, fieldUpdates);
+    }
+
     if (!ok) return false;
 
+    // Handle recurrence toggle changes
     if (!wasRecurring && nowRecurring) {
       await onMakeRecurring(editingTransaction.id);
     } else if (wasRecurring && !nowRecurring) {
@@ -121,7 +143,7 @@ export default function TransactionList({
     }
 
     return true;
-  }, [editingTransaction, onUpdate, onMakeRecurring, onRemoveRecurrence]);
+  }, [editingTransaction, onUpdate, onUpdateBatch, onMakeRecurring, onRemoveRecurrence]);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -233,6 +255,7 @@ export default function TransactionList({
                                     <button
                                       onClick={() => {
                                         setSavedScrollY(window.scrollY);
+                                        setSavedCollapsed({ ...collapsed });
                                         setEditingTransaction(transaction);
                                         setActiveMenu(null);
                                       }}
@@ -268,20 +291,27 @@ export default function TransactionList({
       {editingTransaction && (
         <TransactionForm
           onSubmit={async (data) => {
-            const editedType = editingTransaction.type;
             const scroll = savedScrollY;
+            const collapseSnapshot = { ...savedCollapsed, [editingTransaction.type]: false };
+            const isBatch = data.is_recurring && !!editingTransaction.recurring_group_id;
+
             const result = await handleEdit(data);
-            if (result) {
-              setCollapsed((prev) => ({ ...prev, [editedType]: false }));
-            }
+
+            setCollapsed(collapseSnapshot);
             setEditingTransaction(null);
+
             requestAnimationFrame(() => {
               requestAnimationFrame(() => window.scrollTo(0, scroll));
             });
+
+            if (result) {
+              showToast(isBatch ? 'Série atualizada com sucesso' : 'Transação salva com sucesso');
+            }
             return result;
           }}
           onClose={() => {
             const scroll = savedScrollY;
+            setCollapsed(savedCollapsed);
             setEditingTransaction(null);
             requestAnimationFrame(() => window.scrollTo(0, scroll));
           }}
@@ -296,6 +326,12 @@ export default function TransactionList({
           showRecurrenceToggle
         />
       )}
+
+      <Toast
+        message={toastMsg}
+        visible={toastVisible}
+        onDone={() => setToastVisible(false)}
+      />
     </>
   );
 }

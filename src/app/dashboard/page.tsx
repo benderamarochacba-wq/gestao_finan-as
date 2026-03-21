@@ -27,6 +27,7 @@ export default function DashboardPage() {
     loading,
     addTransaction,
     updateTransaction,
+    updateByRecurringGroup,
     deleteTransaction,
     toggleStatus,
     makeRecurring,
@@ -104,6 +105,7 @@ export default function DashboardPage() {
               transactions={transactions}
               onToggleStatus={toggleStatus}
               onUpdate={updateTransaction}
+              onUpdateBatch={updateByRecurringGroup}
               onDelete={deleteTransaction}
               onMakeRecurring={makeRecurring}
               onRemoveRecurrence={removeRecurrence}
