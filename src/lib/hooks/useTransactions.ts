@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Transaction, TransactionFormData } from '@/types';
-import { showToast } from '@/components/Toast';
 
 export function useTransactions(month: number, year: number) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -29,9 +28,7 @@ export function useTransactions(month: number, year: number) {
 
     if (error) {
       if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
-        console.warn('Tabela transactions não existe.');
-      } else if (error.message?.includes('fetch') || error.message?.includes('network')) {
-        showToast('Sem conexão com o servidor', 'error');
+        console.warn('Tabela transactions não existe. Execute o supabase-schema.sql no SQL Editor.');
       } else {
         console.error('Erro ao buscar transações:', error);
       }
@@ -52,6 +49,7 @@ export function useTransactions(month: number, year: number) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // 1. Buscar IDs de grupo recorrente que JÁ existem neste mês
     const { data: existingForMonth } = await supabase
       .from('transactions')
       .select('recurring_group_id')
@@ -63,9 +61,12 @@ export function useTransactions(month: number, year: number) {
       (existingForMonth || []).map((t) => t.recurring_group_id)
     );
 
+    // 2. Calcular mês anterior
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
 
+    // 3. Buscar TODAS as transações recorrentes do mês anterior
+    //    Todos os tipos (receita, despesa_fixa, despesa_variavel, reserva) são herdados
     const { data: prevRecurring } = await supabase
       .from('transactions')
       .select('*')
@@ -76,6 +77,8 @@ export function useTransactions(month: number, year: number) {
 
     if (!prevRecurring || prevRecurring.length === 0) return;
 
+    // 4. Para cada transação recorrente do mês anterior que não existe neste mês,
+    //    criar uma cópia com status 'pendente' (edições individuais por período)
     const toInsert: Record<string, unknown>[] = [];
     for (const template of prevRecurring) {
       if (!template.recurring_group_id) continue;
@@ -96,17 +99,21 @@ export function useTransactions(month: number, year: number) {
 
     if (toInsert.length > 0) {
       const { error } = await supabase.from('transactions').insert(toInsert);
-      if (!error) {
+      if (error) {
+        console.error('Erro ao replicar recorrentes:', error);
+      } else {
         await fetchTransactions();
       }
     }
   }, [month, year, supabase, fetchTransactions]);
 
+  // Buscar transações ao trocar de mês
   useEffect(() => {
     hasReplicatedRef.current = '';
     fetchTransactions();
   }, [fetchTransactions]);
 
+  // Replicar recorrentes após carregar as transações do mês
   useEffect(() => {
     if (!loading) {
       replicateRecurring();
@@ -132,55 +139,41 @@ export function useTransactions(month: number, year: number) {
     });
 
     if (error) {
-      showToast('Erro ao adicionar transação', 'error');
+      console.error('Erro ao adicionar transação:', error);
       return false;
     }
 
     await fetchTransactions();
-    showToast('Transação adicionada');
     return true;
   };
 
-  // Optimistic update: patch local state immediately, then persist to DB
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
-    // 1. Optimistic: update local cache instantly
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates, updated_at: new Date().toISOString() } : t))
-    );
-
-    // 2. Persist to Supabase
     const { error } = await supabase
       .from('transactions')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) {
-      showToast('Sem conexão — alteração não salva', 'error');
-      await fetchTransactions();
+      console.error('Erro ao atualizar transação:', error);
       return false;
     }
 
-    showToast('Alteração salva');
+    await fetchTransactions();
     return true;
   };
 
-  // Optimistic delete: remove from local state immediately
   const deleteTransaction = async (id: string) => {
-    const backup = transactions;
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
-
     const { error } = await supabase
       .from('transactions')
       .delete()
       .eq('id', id);
 
     if (error) {
-      showToast('Erro ao excluir', 'error');
-      setTransactions(backup);
+      console.error('Erro ao excluir transação:', error);
       return false;
     }
 
-    showToast('Transação excluída');
+    await fetchTransactions();
     return true;
   };
 
@@ -203,68 +196,6 @@ export function useTransactions(month: number, year: number) {
     });
   };
 
-  // Batch: delete all transactions for this month
-  const resetMonth = async () => {
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('month', month)
-      .eq('year', year);
-
-    if (error) {
-      showToast('Erro ao resetar mês', 'error');
-      return false;
-    }
-
-    setTransactions([]);
-    showToast('Mês resetado com sucesso');
-    return true;
-  };
-
-  // Batch: clone non-recurring from previous month
-  const importPreviousMonth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear = month === 1 ? year - 1 : year;
-
-    const { data: prevTransactions } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('month', prevMonth)
-      .eq('year', prevYear)
-      .eq('is_recurring', false);
-
-    if (!prevTransactions || prevTransactions.length === 0) {
-      showToast('Nenhuma transação avulsa no mês anterior', 'warning');
-      return false;
-    }
-
-    const toInsert = prevTransactions.map((t) => ({
-      user_id: user.id,
-      description: t.description,
-      amount: t.amount,
-      type: t.type,
-      status: 'pendente' as const,
-      is_recurring: false,
-      recurring_group_id: null,
-      month,
-      year,
-    }));
-
-    const { error } = await supabase.from('transactions').insert(toInsert);
-
-    if (error) {
-      showToast('Erro ao importar mês anterior', 'error');
-      return false;
-    }
-
-    await fetchTransactions();
-    showToast(`${toInsert.length} transações importadas`);
-    return true;
-  };
-
   return {
     transactions,
     loading,
@@ -274,8 +205,6 @@ export function useTransactions(month: number, year: number) {
     toggleStatus,
     makeRecurring,
     removeRecurrence,
-    resetMonth,
-    importPreviousMonth,
     refetch: fetchTransactions,
   };
 }
