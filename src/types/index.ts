@@ -1,4 +1,4 @@
-export type TransactionType = 'receita' | 'despesa_fixa' | 'despesa_variavel';
+export type TransactionType = 'receita' | 'despesa_fixa' | 'despesa_variavel' | 'reserva';
 
 export type TransactionStatus = 'pendente' | 'pago';
 
@@ -29,6 +29,7 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   receita: 'Receita',
   despesa_fixa: 'Despesa Fixa',
   despesa_variavel: 'Despesa Variável',
+  reserva: 'Reserva',
 };
 
 export const STATUS_LABELS: Record<TransactionStatus, string> = {

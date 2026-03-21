@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   description TEXT NOT NULL,
   amount DECIMAL(12, 2) NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('receita', 'despesa_fixa', 'despesa_variavel')),
+  type TEXT NOT NULL CHECK (type IN ('receita', 'despesa_fixa', 'despesa_variavel', 'reserva')),
   status TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente', 'pago')),
   is_recurring BOOLEAN DEFAULT FALSE,
   recurring_group_id UUID,
@@ -18,6 +18,14 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 1b. Migração: se a tabela já existe, atualizar o CHECK constraint para incluir 'reserva'
+DO $$ BEGIN
+  ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_type_check;
+  ALTER TABLE public.transactions ADD CONSTRAINT transactions_type_check
+    CHECK (type IN ('receita', 'despesa_fixa', 'despesa_variavel', 'reserva'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- 2. Índices para performance
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON public.transactions(user_id);

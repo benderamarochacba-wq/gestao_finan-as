@@ -41,7 +41,8 @@ export default function TransactionForm({ onSubmit, onClose, initialData, isEdit
   const typeOptions: { value: TransactionType; label: string; color: string }[] = [
     { value: 'receita', label: 'Receita', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
     { value: 'despesa_fixa', label: 'Despesa Fixa', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-    { value: 'despesa_variavel', label: 'Despesa Variável', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+    { value: 'despesa_variavel', label: 'Variável', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+    { value: 'reserva', label: 'Reserva', color: 'bg-violet-500/20 text-violet-400 border-violet-500/30' },
   ];
 
   return (
@@ -96,7 +97,7 @@ export default function TransactionForm({ onSubmit, onClose, initialData, isEdit
             <label className="block text-sm font-medium text-slate-400 mb-1.5">
               Tipo
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {typeOptions.map((option) => (
                 <button
                   key={option.value}

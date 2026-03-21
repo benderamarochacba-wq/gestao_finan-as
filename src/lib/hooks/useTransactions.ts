@@ -76,7 +76,7 @@ export function useTransactions(month: number, year: number) {
       .eq('is_recurring', true)
       .eq('month', prevMonth)
       .eq('year', prevYear)
-      .in('type', ['receita', 'despesa_fixa'])
+      .in('type', ['receita', 'despesa_fixa', 'reserva'])
       .not('recurring_group_id', 'is', null);
 
     if (!prevRecurring || prevRecurring.length === 0) return;

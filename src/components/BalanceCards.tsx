@@ -1,7 +1,7 @@
 'use client';
 
 import { Transaction } from '@/types';
-import { TrendingUp, TrendingDown, Repeat, Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Repeat, Wallet, ArrowUpCircle, ArrowDownCircle, PiggyBank } from 'lucide-react';
 
 interface BalanceCardsProps {
   transactions: Transaction[];
@@ -27,8 +27,16 @@ export default function BalanceCards({ transactions }: BalanceCardsProps) {
     .filter((t) => t.type === 'despesa_variavel')
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
+  const reservasPagas = transactions
+    .filter((t) => t.type === 'reserva' && t.status === 'pago')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const reservasTotal = transactions
+    .filter((t) => t.type === 'reserva')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
   const totalDespesas = despesasFixas + despesasVariaveis;
-  const saldo = receitas - totalDespesas;
+  const saldo = receitas - totalDespesas - reservasPagas;
 
   return (
     <div className="space-y-3">
@@ -57,21 +65,21 @@ export default function BalanceCards({ transactions }: BalanceCardsProps) {
             </span>
             <span className="flex items-center gap-1">
               <ArrowDownCircle className="w-3 h-3 text-red-500" />
-              {formatCurrency(totalDespesas)}
+              {formatCurrency(totalDespesas + reservasPagas)}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Três cards: Receitas, Despesas Fixas, Despesas Variáveis */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Quatro cards: Receitas, Despesas Fixas, Despesas Variáveis, Reservas */}
+      <div className="grid grid-cols-4 gap-2">
         {/* Receitas */}
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3">
           <div className="flex items-center gap-1.5 mb-2">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
             <span className="text-[10px] uppercase tracking-wider text-emerald-400/70 font-semibold">Receitas</span>
           </div>
-          <p className="text-base font-bold text-emerald-400">
+          <p className="text-sm font-bold text-emerald-400">
             {formatCurrency(receitas)}
           </p>
           <p className="text-[10px] text-slate-500 mt-1">
@@ -85,7 +93,7 @@ export default function BalanceCards({ transactions }: BalanceCardsProps) {
             <Repeat className="w-3.5 h-3.5 text-orange-500" />
             <span className="text-[10px] uppercase tracking-wider text-orange-400/70 font-semibold">Fixas</span>
           </div>
-          <p className="text-base font-bold text-orange-400">
+          <p className="text-sm font-bold text-orange-400">
             {formatCurrency(despesasFixas)}
           </p>
           <p className="text-[10px] text-slate-500 mt-1">
@@ -99,11 +107,25 @@ export default function BalanceCards({ transactions }: BalanceCardsProps) {
             <TrendingDown className="w-3.5 h-3.5 text-red-500" />
             <span className="text-[10px] uppercase tracking-wider text-red-400/70 font-semibold">Variáveis</span>
           </div>
-          <p className="text-base font-bold text-red-400">
+          <p className="text-sm font-bold text-red-400">
             {formatCurrency(despesasVariaveis)}
           </p>
           <p className="text-[10px] text-slate-500 mt-1">
             {transactions.filter(t => t.type === 'despesa_variavel').length} itens
+          </p>
+        </div>
+
+        {/* Reservas */}
+        <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <PiggyBank className="w-3.5 h-3.5 text-violet-500" />
+            <span className="text-[10px] uppercase tracking-wider text-violet-400/70 font-semibold">Reservas</span>
+          </div>
+          <p className="text-sm font-bold text-violet-400">
+            {formatCurrency(reservasTotal)}
+          </p>
+          <p className="text-[10px] text-slate-500 mt-1">
+            {transactions.filter(t => t.type === 'reserva').length} itens
           </p>
         </div>
       </div>

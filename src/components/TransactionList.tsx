@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Transaction, TransactionType, TransactionFormData, TransactionStatus } from '@/types';
 import StatusBadge from './StatusBadge';
 import TransactionForm from './TransactionForm';
-import { Trash2, Pencil, Repeat, TrendingUp, TrendingDown, MoreVertical, Receipt } from 'lucide-react';
+import { Trash2, Pencil, Repeat, TrendingUp, TrendingDown, MoreVertical, Receipt, PiggyBank } from 'lucide-react';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -52,6 +52,14 @@ const sectionConfig: Record<TransactionType, {
     borderColor: 'border-l-red-500',
     bgColor: 'bg-slate-800/40',
   },
+  reserva: {
+    title: 'Reservas',
+    icon: PiggyBank,
+    color: 'text-violet-400',
+    badgeColor: 'bg-violet-500/15 text-violet-400',
+    borderColor: 'border-l-violet-500',
+    bgColor: 'bg-slate-800/40',
+  },
 };
 
 export default function TransactionList({
@@ -68,13 +76,14 @@ export default function TransactionList({
     receita: [],
     despesa_fixa: [],
     despesa_variavel: [],
+    reserva: [],
   };
 
   transactions.forEach((t) => {
     grouped[t.type].push(t);
   });
 
-  const sectionOrder: TransactionType[] = ['receita', 'despesa_fixa', 'despesa_variavel'];
+  const sectionOrder: TransactionType[] = ['receita', 'despesa_fixa', 'despesa_variavel', 'reserva'];
 
   const handleEdit = async (data: TransactionFormData) => {
     if (!editingTransaction) return false;
