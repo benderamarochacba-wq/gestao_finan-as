@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Transaction, TransactionType, TransactionFormData, TransactionStatus } from '@/types';
 import StatusBadge from './StatusBadge';
 import TransactionForm from './TransactionForm';
@@ -75,19 +75,59 @@ export default function TransactionList({
   onMakeRecurring,
   onRemoveRecurrence,
 }: TransactionListProps) {
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
+  const STORAGE_KEY_ACCORDION = 'financas_accordion_state';
+  const STORAGE_KEY_SCROLL = 'financas_scroll_y';
+
+  const defaultCollapsed: Record<string, boolean> = {
     receita: true,
     despesa_fixa: true,
     despesa_variavel: true,
     reserva: true,
-  });
-  const [savedScrollY, setSavedScrollY] = useState(0);
-  const [savedCollapsed, setSavedCollapsed] = useState<Record<string, boolean>>({});
+  };
+
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(defaultCollapsed);
+  const [hydrated, setHydrated] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
+
+  // Hydrate accordion state from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_ACCORDION);
+      if (stored) {
+        setCollapsed(JSON.parse(stored));
+      }
+    } catch { /* ignore */ }
+    setHydrated(true);
+  }, []);
+
+  // Persist accordion state to localStorage on every change (after hydration)
+  useEffect(() => {
+    if (hydrated) {
+      localStorage.setItem(STORAGE_KEY_ACCORDION, JSON.stringify(collapsed));
+    }
+  }, [collapsed, hydrated]);
+
+  // Restore scroll position after data loads (e.g. after fetchTransactions re-render)
+  useEffect(() => {
+    try {
+      const savedY = localStorage.getItem(STORAGE_KEY_SCROLL);
+      if (savedY) {
+        const y = parseInt(savedY, 10);
+        localStorage.removeItem(STORAGE_KEY_SCROLL);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => window.scrollTo(0, y));
+        });
+      }
+    } catch { /* ignore */ }
+  }, [transactions]);
+
+  const saveScrollPosition = useCallback(() => {
+    localStorage.setItem(STORAGE_KEY_SCROLL, String(window.scrollY));
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -254,8 +294,7 @@ export default function TransactionList({
                                   <div className="absolute right-0 top-full mt-1 z-20 bg-slate-700 rounded-xl shadow-2xl border border-slate-600 overflow-hidden min-w-[150px] animate-fade-in">
                                     <button
                                       onClick={() => {
-                                        setSavedScrollY(window.scrollY);
-                                        setSavedCollapsed({ ...collapsed });
+                                        saveScrollPosition();
                                         setEditingTransaction(transaction);
                                         setActiveMenu(null);
                                       }}
@@ -291,18 +330,14 @@ export default function TransactionList({
       {editingTransaction && (
         <TransactionForm
           onSubmit={async (data) => {
-            const scroll = savedScrollY;
-            const collapseSnapshot = { ...savedCollapsed, [editingTransaction.type]: false };
             const isBatch = data.is_recurring && !!editingTransaction.recurring_group_id;
 
+            // Force-expand the edited section, save to localStorage for scroll restoration
+            setCollapsed((prev) => ({ ...prev, [editingTransaction.type]: false }));
+            saveScrollPosition();
+
             const result = await handleEdit(data);
-
-            setCollapsed(collapseSnapshot);
             setEditingTransaction(null);
-
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => window.scrollTo(0, scroll));
-            });
 
             if (result) {
               showToast(isBatch ? 'Série atualizada com sucesso' : 'Transação salva com sucesso');
@@ -310,10 +345,9 @@ export default function TransactionList({
             return result;
           }}
           onClose={() => {
-            const scroll = savedScrollY;
-            setCollapsed(savedCollapsed);
+            // Scroll is already in localStorage, will be restored by the transactions useEffect
+            saveScrollPosition();
             setEditingTransaction(null);
-            requestAnimationFrame(() => window.scrollTo(0, scroll));
           }}
           initialData={{
             description: editingTransaction.description,
