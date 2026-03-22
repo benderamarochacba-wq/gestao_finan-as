@@ -13,9 +13,15 @@ export interface MonthlyAggregate {
   despesasVariaveis: number;
   reservas: number;
   reservasPagas: number;
-  total: number;
+  totalGastos: number;
   saldo: number;
   savingsRate: number;
+  patrimonio: number;
+  reservasAcumuladas: number;
+  danielGastos: number;
+  vanessaGastos: number;
+  outrosGastos: number;
+  topCategories: { description: string; amount: number; type: string }[];
 }
 
 export interface ReportData {
@@ -23,7 +29,7 @@ export interface ReportData {
   loading: boolean;
   totalReceitas: number;
   totalDespesas: number;
-  totalReservas: number;
+  totalReservasAcumuladas: number;
   avgSavingsRate: number;
   reserveGrowth: number;
   bestMonth: MonthlyAggregate | null;
@@ -34,6 +40,16 @@ const MONTH_NAMES = [
   'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
 ];
+
+const DANIEL_KEYWORDS = ['daniel', 'cartão daniel', 'cartao daniel', 'card daniel'];
+const VANESSA_KEYWORDS = ['vanessa', 'cartão vanessa', 'cartao vanessa', 'card vanessa'];
+
+function matchOwner(description: string): 'daniel' | 'vanessa' | 'outros' {
+  const lower = description.toLowerCase();
+  if (DANIEL_KEYWORDS.some(k => lower.includes(k))) return 'daniel';
+  if (VANESSA_KEYWORDS.some(k => lower.includes(k))) return 'vanessa';
+  return 'outros';
+}
 
 export function useReportData(): ReportData {
   const [months, setMonths] = useState<MonthlyAggregate[]>([]);
@@ -64,7 +80,10 @@ export function useReportData(): ReportData {
       grouped.get(key)!.push(t);
     }
 
+    let reservasAcumuladas = 0;
+    let saldoAcumulado = 0;
     const aggregates: MonthlyAggregate[] = [];
+
     for (const [, txs] of Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b))) {
       const first = txs[0];
       const receitas = txs.filter(t => t.type === 'receita').reduce((s, t) => s + Number(t.amount), 0);
@@ -72,9 +91,31 @@ export function useReportData(): ReportData {
       const despesasVariaveis = txs.filter(t => t.type === 'despesa_variavel').reduce((s, t) => s + Number(t.amount), 0);
       const reservas = txs.filter(t => t.type === 'reserva').reduce((s, t) => s + Number(t.amount), 0);
       const reservasPagas = txs.filter(t => t.type === 'reserva' && t.status === 'pago').reduce((s, t) => s + Number(t.amount), 0);
-      const total = despesasFixas + despesasVariaveis + reservasPagas;
-      const saldo = receitas - total;
-      const savingsRate = receitas > 0 ? ((receitas - total) / receitas) * 100 : 0;
+
+      const totalGastos = despesasFixas + despesasVariaveis;
+      const saldo = receitas - totalGastos - reservasPagas;
+      const savingsRate = receitas > 0 ? ((reservasPagas + saldo) / receitas) * 100 : 0;
+
+      reservasAcumuladas += reservasPagas;
+      saldoAcumulado += saldo;
+
+      // Card split: only count expenses (not receitas/reservas)
+      const expenses = txs.filter(t => t.type === 'despesa_fixa' || t.type === 'despesa_variavel');
+      let danielGastos = 0, vanessaGastos = 0, outrosGastos = 0;
+      for (const e of expenses) {
+        const owner = matchOwner(e.description);
+        const amt = Number(e.amount);
+        if (owner === 'daniel') danielGastos += amt;
+        else if (owner === 'vanessa') vanessaGastos += amt;
+        else outrosGastos += amt;
+      }
+
+      // Top categories: top 5 expenses by amount
+      const allExpenses = txs
+        .filter(t => t.type !== 'receita')
+        .sort((a, b) => Number(b.amount) - Number(a.amount))
+        .slice(0, 5)
+        .map(t => ({ description: t.description, amount: Number(t.amount), type: t.type }));
 
       aggregates.push({
         label: `${MONTH_NAMES[first.month - 1]}/${first.year}`,
@@ -85,9 +126,15 @@ export function useReportData(): ReportData {
         despesasVariaveis,
         reservas,
         reservasPagas,
-        total,
+        totalGastos,
         saldo,
         savingsRate,
+        patrimonio: saldoAcumulado + reservasAcumuladas,
+        reservasAcumuladas,
+        danielGastos,
+        vanessaGastos,
+        outrosGastos,
+        topCategories: allExpenses,
       });
     }
 
@@ -98,17 +145,14 @@ export function useReportData(): ReportData {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const totalReceitas = months.reduce((s, m) => s + m.receitas, 0);
-  const totalDespesas = months.reduce((s, m) => s + m.total, 0);
-  const totalReservas = months.reduce((s, m) => s + m.reservasPagas, 0);
+  const totalDespesas = months.reduce((s, m) => s + m.totalGastos + m.reservasPagas, 0);
+  const totalReservasAcumuladas = months.length > 0 ? months[months.length - 1].reservasAcumuladas : 0;
   const avgSavingsRate = months.length > 0
     ? months.reduce((s, m) => s + m.savingsRate, 0) / months.length
     : 0;
-
-  const reserveValues = months.map(m => m.reservasPagas);
-  const reserveGrowth = reserveValues.length >= 2
-    ? reserveValues[reserveValues.length - 1] - reserveValues[0]
+  const reserveGrowth = months.length >= 2
+    ? months[months.length - 1].reservasPagas - months[0].reservasPagas
     : 0;
-
   const bestMonth = months.length > 0 ? months.reduce((best, m) => m.savingsRate > best.savingsRate ? m : best) : null;
   const worstMonth = months.length > 0 ? months.reduce((worst, m) => m.savingsRate < worst.savingsRate ? m : worst) : null;
 
@@ -117,7 +161,7 @@ export function useReportData(): ReportData {
     loading,
     totalReceitas,
     totalDespesas,
-    totalReservas,
+    totalReservasAcumuladas,
     avgSavingsRate,
     reserveGrowth,
     bestMonth,
